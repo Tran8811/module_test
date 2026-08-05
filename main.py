@@ -1,13 +1,13 @@
 import json
 
-from parser import load_pdf
-from chunker import split_documents
-from exporter import export_chunks
+from test_generator.parser import load_pdf
+from test_generator.chunker import split_documents
+from test_generator.exporter import export_chunks
 
-from question_generator import generate_questions
-from candidate_retriever import retrieve_candidates
-from label_generator import generate_labels
-from answer_generator import generate_answer
+from test_generator.question_generator import generate_questions
+from test_generator.candidate_retriever import retrieve_candidates
+from test_generator.label_generator import generate_labels
+from test_generator.answer_generator import generate_answer
 
 
 def main():
