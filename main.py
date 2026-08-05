@@ -16,7 +16,9 @@ def main():
     # 1. Load & Chunk document
     # ==========================
 
-    documents = load_pdf("data/Diem-CK_HP.pdf")
+    documents = []
+    for file_path in ["data/Diem-CK_HP.pdf", "data/OOP_2013.pdf"]:
+        documents.extend(load_pdf(file_path))
 
     chunks = split_documents(documents)
 
@@ -34,6 +36,7 @@ def main():
         questions = generate_questions(chunk)
 
         for question in questions:
+            question_text = question["question"]
 
             print("=" * 80)
             print(question)
@@ -43,7 +46,7 @@ def main():
             # --------------------------
 
             candidate_ids = retrieve_candidates(
-                question,
+                question_text,
                 chunks,
                 top_k=5
             )
@@ -55,7 +58,7 @@ def main():
             # --------------------------
 
             labels = generate_labels(
-                question,
+                question_text,
                 candidate_ids,
                 chunks
             )
@@ -67,7 +70,7 @@ def main():
             # --------------------------
 
             answer = generate_answer(
-                question,
+                question_text,
                 labels,
                 chunks
             )

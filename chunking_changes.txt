@@ -1,0 +1,69 @@
+Thay đổi Chunking so với LangChain
+=================================
+
+1. Trước: Dùng LangChain RecursiveCharacterTextSplitter
+-----------------------------------------------------
+- Cài đặt ban đầu dùng:
+  from langchain_text_splitters import RecursiveCharacterTextSplitter
+- Dựa trên logic chia nhỏ đệ quy sẵn có của LangChain.
+- Chunk được tạo bằng cách gọi `splitter.split_documents(documents)`.
+- Mỗi chunk đầu ra là object tài liệu của LangChain với `.page_content` và `.metadata`.
+- ID được gán bằng cách lặp qua các document trả về.
+
+2. Sau: Triển khai chunking TLA tùy chỉnh
+------------------------------------------
+- Cài đặt mới không còn phụ thuộc trực tiếp vào LangChain cho việc chunking.
+- Dùng hàm đệ quy tùy chỉnh `_tla_split_text`.
+- Hàm này chia text theo thứ tự separator:
+  1. đoạn văn: "\n\n"
+  2. dòng: "\n"
+  3. khoảng trắng: " "
+  4. fallback ký tự: ""
+- Hàm đệ quy xuống separator thấp hơn cho đến khi mỗi chunk có độ dài <= CHUNK_SIZE.
+- Code mới thể hiện rõ logic TLA thay vì dùng logic chung của LangChain.
+
+3. Thay đổi trong `chunker.py`
+------------------------------
+- Bỏ import `RecursiveCharacterTextSplitter` và không dùng `splitter.split_documents` nữa.
+- Thêm các hàm trợ giúp:
+  - `_split_text_with_regex`
+  - `_merge_splits`
+  - `_tla_split_text`
+- `split_documents()` giờ tạo chunk trực tiếp từ text thô.
+- Mỗi chunk là một dict Python với các khóa:
+  - `chunk_id`
+  - `text`
+  - `metadata`
+- Sau khi chia xong, ID được gán đồng nhất bằng `assign_chunk_ids(chunks)`.
+
+4. Thay đổi trong `utils.py`
+----------------------------
+- `assign_chunk_ids()` giờ hỗ trợ cả dict chunk, không chỉ object.
+- Gán cả:
+  - `chunk['chunk_id']`
+  - `chunk['metadata']['chunk_id']`
+- Đảm bảo ID chunk ổn định và tương thích với các phần khác của pipeline.
+
+5. Tác dụng thực tế của thay đổi
+----------------------------------
+- Pipeline không phụ thuộc sâu vào nội bộ chunking của LangChain nữa.
+- Dễ kiểm soát và sửa đổi hành vi chia chunk hơn.
+- Logic chunking rõ ràng và minh bạch:
+  - chia đoạn trước
+  - rồi chia dòng
+  - rồi chia theo khoảng trắng
+  - cuối cùng fallback theo ký tự
+- Giúp giữ tính nhất quán với quy tắc dữ liệu TLA.
+- Giảm phụ thuộc vào thay đổi API của LangChain.
+- Dễ gỡ lỗi hơn khi cần kiểm tra biên chunk và metadata.
+
+6. Ghi chú về relevance và ground-truth
+---------------------------------------
+- Mặc dù sửa chunking là riêng, pipeline vẫn sử dụng định dạng chunk dict thống nhất.
+- Cơ chế gán nhãn cũng đã điều chỉnh để chỉ giữ các chunk có relevance > 0.
+
+7. Tóm tắt
+----------
+- "Trước": chia chunk bằng LangChain chung.
+- "Sau": chunking chuẩn TLA tự triển khai trong `chunker.py`.
+- Kết quả: kiểm soát tốt hơn biên chunk, metadata rõ ràng, và giảm phụ thuộc LangChain.

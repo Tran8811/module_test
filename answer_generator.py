@@ -40,9 +40,12 @@ Content:
 
 def generate_answer(question, labels, chunks):
 
-    prompt = ANSWER_PROMPT.format(
-        question=question,
-        chunks=build_chunks(labels, chunks)
+    prompt = ANSWER_PROMPT.replace(
+        "{question}",
+        question
+    ).replace(
+        "{chunks}",
+        build_chunks(labels, chunks)
     )
 
     response = chat(prompt)

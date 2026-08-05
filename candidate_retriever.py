@@ -36,10 +36,15 @@ Content:
 
 def retrieve_candidates(question, chunks, top_k=5):
 
-    prompt = CANDIDATE_PROMPT.format(
-        question=question,
-        chunks=build_chunks(chunks),
-        top_k=top_k
+    prompt = CANDIDATE_PROMPT.replace(
+        "{question}",
+        question
+    ).replace(
+        "{chunks}",
+        build_chunks(chunks)
+    ).replace(
+        "{top_k}",
+        str(top_k)
     )
 
     response = chat(prompt)

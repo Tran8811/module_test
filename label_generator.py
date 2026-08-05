@@ -13,7 +13,31 @@ def clean_json(text):
     start = text.find("{")
     end = text.rfind("}")
 
+    if start == -1 or end == -1:
+        return text.strip()
+
     return text[start:end + 1]
+
+
+def parse_label_response(text):
+    clean_text = clean_json(text)
+
+    try:
+        return json.loads(clean_text)
+    except json.JSONDecodeError:
+        results = []
+        pattern = re.compile(
+            r"chunk_id\s*[\":=]*\s*([0-9]+).*?relevance\s*[\":=]*\s*([0-9]+)",
+            re.IGNORECASE | re.DOTALL,
+        )
+        for match in pattern.finditer(text):
+            results.append(
+                {
+                    "chunk_id": int(match.group(1)),
+                    "relevance": int(match.group(2)),
+                }
+            )
+        return {"results": results}
 
 
 def build_chunks(candidate_ids, chunks):
@@ -37,14 +61,17 @@ Content:
 
 def generate_labels(question, candidate_ids, chunks):
 
-    prompt = LABEL_PROMPT.format(
-        question=question,
-        chunks=build_chunks(candidate_ids, chunks)
+    prompt = LABEL_PROMPT.replace(
+        "{question}",
+        question
+    ).replace(
+        "{chunks}",
+        build_chunks(candidate_ids, chunks)
     )
 
     response = chat(prompt)
 
-    data = json.loads(clean_json(response))
+    data = parse_label_response(response)
 
     results = data.get("results", [])
 
@@ -64,15 +91,13 @@ def generate_labels(question, candidate_ids, chunks):
             else:
                 continue
 
-        cleaned.append({
-            "chunk_id": cid,
-            "relevance": int(item.get("relevance", 0))
-        })
+        relevance = int(item.get("relevance", 0))
 
-    cleaned = [
-        r for r in cleaned
-        if r["relevance"] > 0
-    ]
+        if relevance > 0:
+            cleaned.append({
+                "chunk_id": cid,
+                "relevance": relevance
+            })
 
     cleaned.sort(
         key=lambda x: x["relevance"],

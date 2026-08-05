@@ -1,29 +1,38 @@
 QUESTION_PROMPT = """
-You are creating a benchmark dataset for evaluating Retrieval systems.
+You are creating a benchmark dataset for evaluating Retrieval and QA systems.
 
-Given one document chunk below.
-
-Generate exactly 3 questions that can ONLY be answered from this chunk.
+Given one document chunk below, generate exactly 3 questions with types and difficulty labels.
 
 Requirements:
-
 - Questions must be factual.
 - Questions should not depend on external knowledge.
 - Avoid yes/no questions.
 - Avoid ambiguous wording.
 - Different questions should test different information.
+- If the chunk contains a table or structured data, include one table-related question.
 
 Return ONLY valid JSON.
 
 Format:
-
 {{
-    "questions": [
-        "...",
-        "...",
-        "..."
-    ]
+  "questions": [
+    {{
+      "question": "...",
+      "type": "one-hop|multi-hop|table",
+      "difficulty": "easy|medium|hard"
+    }}
+  ]
 }}
+
+Type definitions:
+- one-hop: can be answered directly using one fact or one chunk.
+- multi-hop: requires reasoning across multiple facts or combining information.
+- table: based on tabular or structured data in the chunk.
+
+Difficulty definitions:
+- easy: direct factual retrieval.
+- medium: requires a moderate inference or combination of facts.
+- hard: requires deeper reasoning or multi-step synthesis.
 
 Chunk:
 
@@ -52,7 +61,9 @@ Rules:
 - Do NOT use markdown.
 - Do NOT wrap with ```json.
 - chunk_id MUST be an integer.
-- Return every candidate exactly once.
+- Return only candidates with relevance > 0.
+- Do NOT include chunks with relevance = 0 in the results.
+- Assume any candidate not listed has relevance = 0.
 
 Output format:
 
