@@ -1,0 +1,53 @@
+[project]
+name = "test_generator"
+version = "0.1.0"
+description = "Generate retrieval and QA benchmark datasets from document chunks using an LLM."
+authors = [
+    { name = "Tran Phuong P", email = "you@example.com" }
+]
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+keywords = ["rag", "llm", "question-generation", "retrieval", "qa", "benchmark"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Operating System :: OS Independent"
+]
+dependencies = [
+    "langchain",
+    "langchain-community",
+    "langchain-text-splitters",
+    "pypdf",
+    "python-dotenv",
+    "tqdm",
+    "requests"
+]
+
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = [
+    "main",
+    "answer_generator",
+    "candidate_retriever",
+    "chatbot",
+    "chunker",
+    "config",
+    "exporter",
+    "label_generator",
+    "llm",
+    "parser",
+    "prompts",
+    "question_generator",
+    "utils"
+]
+
+[project.scripts]
+test-generator = "main:main"
+
+[tool.uv]
+python = "python"
+args = ["main.py"]
