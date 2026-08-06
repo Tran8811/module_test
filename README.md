@@ -15,5 +15,5 @@ Generate retrieval and QA benchmark datasets from document chunks using an LLM.
 
 ## Notes
 
-- Input PDF: `data/Diem-CK_HP.pdf`
+- Input PDF: data/
 - Output: `output/retrieval_test.json`, `output/qa_test.json`
