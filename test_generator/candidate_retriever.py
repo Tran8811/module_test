@@ -35,24 +35,6 @@ Content:
 
     return "\n".join(result)
 
-
-# ---------------------------------------------------------------------------
-# Prefilter scoring
-# ---------------------------------------------------------------------------
-# The previous scorer summed raw term-frequency counts of question tokens
-# found in each chunk. That badly favors chunks stuffed with common words
-# (e.g. "anh", "trường", "diem" appear in almost every row of a scores
-# table) over the chunk that actually contains the specific, rare term the
-# question cares about (a full student name). Two fixes below:
-#
-#   1. IDF weighting: tokens that appear in most chunks contribute almost
-#      nothing to the score; tokens that appear in only a few chunks (like
-#      a surname) contribute a lot.
-#   2. Exact-phrase bonus: if the question contains a likely proper noun
-#      (a run of capitalized words, e.g. "Chu Anh Trường"), any chunk
-#      containing that exact phrase gets a large flat bonus, guaranteeing
-#      it survives prefiltering regardless of generic word noise.
-
 _VN_UPPER = "A-ZÀÁẢÃẠĂẮẰẲẴẶÂẤẦẨẪẬÐĐÈÉẺẼẸÊẾỀỂỄỆÌÍỈĨỊÒÓỎÕỌÔỐỒỔỖỘƠỚỜỞỠỢÙÚỦŨỤƯỨỪỬỮỰỲÝỶỸỴ"
 _VN_LOWER = "a-zàáảãạăắằẳẵặâấầẩẫậðđèéẻẽẹêếềểễệìíỉĩịòóỏõọôốồổỗộơớờởỡợùúủũụưứừửữựỳýỷỹỵ"
 
@@ -184,12 +166,7 @@ def retrieve_candidates(question, chunks, top_k=5):
     is_multi_hop = qtype == "multi-hop" or difficulty == "hard"
     prefilter_limit = CANDIDATE_PREFILTER_LIMIT * (2 if is_multi_hop else 1)
 
-    # Hard ceiling regardless of multiplier: very large prompts (~200+
-    # chunks, 120K+ chars) have been observed to crash the inference
-    # engine itself (HTTP 500 "EngineCore encountered an issue") even
-    # though technically within the advertised context window. Stay well
-    # clear of that edge instead of relying only on the token-fit loop
-    # further down, which guards context overflow, not engine stability.
+    
     HARD_MAX_CANDIDATES = 120
     prefilter_limit = min(prefilter_limit, HARD_MAX_CANDIDATES)
 

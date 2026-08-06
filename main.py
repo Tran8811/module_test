@@ -2,7 +2,7 @@ import json
 import os
 
 from test_generator.parser import load_pdf
-from test_generator.chunker import split_documents
+from test_generator.hierarchical_chunker import split_documents_hierarchical
 from test_generator.exporter import export_chunks
 
 from test_generator.question_generator import generate_questions
@@ -36,7 +36,7 @@ def main():
     for file_path in ["data/Diem-CK_HP.pdf", "data/OOP_2013.pdf"]:
         documents.extend(load_pdf(file_path))
 
-    chunks = split_documents(documents)
+    chunks = split_documents_hierarchical(documents)
 
     export_chunks(chunks, "output/chunks.json")
 
