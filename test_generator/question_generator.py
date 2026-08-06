@@ -1,8 +1,8 @@
 import json
 import re
 
-from test_generator.llm import chat
-from test_generator.prompts import QUESTION_PROMPT
+from .llm import chat
+from .prompts import QUESTION_PROMPT
 
 
 def clean_json(text: str) -> str:
@@ -40,11 +40,55 @@ def validate_question_item(item):
     return True
 
 
-def generate_questions(chunk):
+def _format_related_chunks(chunks):
+    if not chunks:
+        return ""
+
+    parts = []
+    for chunk in chunks:
+        source = chunk.get("metadata", {}).get("source", "unknown")
+        parts.append(
+            f"ID: {chunk['chunk_id']} (source: {source})\nContent:\n{chunk['text']}"
+        )
+    return "\n\n".join(parts)
+
+
+def _select_related_chunks(chunk, all_chunks, limit=2):
+    source = chunk.get("metadata", {}).get("source")
+    same_source = []
+    other_source = []
+
+    for other in all_chunks:
+        if other["chunk_id"] == chunk["chunk_id"]:
+            continue
+        if source and other.get("metadata", {}).get("source") == source:
+            same_source.append(other)
+        else:
+            other_source.append(other)
+
+    related = []
+    if same_source:
+        related.append(same_source[0])
+    if other_source and len(related) < limit:
+        related.append(other_source[0])
+    for other in same_source[1:limit]:
+        if len(related) < limit:
+            related.append(other)
+
+    return related
+
+
+def generate_questions(chunk, all_chunks=None):
+    related_chunks = []
+    if all_chunks is not None:
+        related_chunks = _select_related_chunks(chunk, all_chunks, limit=2)
 
     prompt = QUESTION_PROMPT.replace(
         "{chunk}",
         chunk["text"]
+    ).replace(
+        "{related_chunks}",
+        _format_related_chunks(related_chunks)
     )
 
     response = chat(prompt)

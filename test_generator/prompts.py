@@ -10,6 +10,7 @@ Requirements:
 - Avoid ambiguous wording.
 - Different questions should test different information.
 - If the chunk contains a table or structured data, include one table-related question.
+- If related chunks are available, create at least one question that requires combining information from multiple chunks.
 
 Return ONLY valid JSON.
 
@@ -37,6 +38,10 @@ Difficulty definitions:
 Chunk:
 
 {chunk}
+
+Related chunks:
+
+{related_chunks}
 """
 LABEL_PROMPT = """
 You are evaluating candidate chunks for a Retrieval benchmark.
@@ -96,6 +101,7 @@ Rules:
 - Return ONLY integer chunk IDs.
 - If a chunk partially answers the question, include it.
 - Prefer chunks containing direct evidence.
+- If the question requires comparing or combining information, return all chunks needed to answer it fully.
 
 Chunks:
 {chunks}
@@ -121,6 +127,7 @@ Requirements:
 
 - Answer ONLY using the provided chunks.
 - Do not use external knowledge.
+- If the answer requires multiple chunks, combine them clearly.
 - If information is insufficient, answer "Not enough information."
 - Keep the answer concise and factual.
 

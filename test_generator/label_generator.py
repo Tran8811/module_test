@@ -1,8 +1,8 @@
 import json
 import re
 
-from test_generator.llm import chat
-from test_generator.prompts import LABEL_PROMPT
+from .llm import chat
+from .prompts import LABEL_PROMPT
 
 
 def clean_json(text):
