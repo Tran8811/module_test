@@ -1,15 +1,29 @@
-"""Test generator package."""
-from .chunker import split_documents, split_text_items
-from .question_generator import generate_questions
-from .candidate_retriever import retrieve_candidates
-from .label_generator import generate_labels
-from .answer_generator import generate_answer
+"""production_pipeline — chunking + indexing giống hệt luồng production.
+
+Flow 1 (DOCX -> chunk mới):
+    from production_pipeline.production_chunker import chunk_docx
+    chunks = chunk_docx("path/to/file.docx")
+
+Flow 2 (kéo chunk đã index sẵn trong Postgres):
+    from production_pipeline.pg_reader import fetch_chunks_for_documents
+    chunks = fetch_chunks_for_documents(["doc-id-1", "doc-id-2"])
+
+Ghi dữ liệu vào Postgres (nếu cần tự index, không chỉ đọc):
+    from production_pipeline.pg_writer import index_document
+
+Cả 2 flow trả về CÙNG format:
+    [{"chunk_id": int, "text": str, "metadata": {...}}, ...]
+-> đưa thẳng vào question_generator / candidate_retriever / label_generator /
+   answer_generator / exporter hiện có, không cần sửa gì ở các file đó.
+"""
+from .production_chunker import chunk_docx, chunk_documents
+from .pg_reader import fetch_chunks_for_document, fetch_chunks_for_documents
+from .pg_writer import index_document
 
 __all__ = [
-	"split_documents",
-	"split_text_items",
-	"generate_questions",
-	"retrieve_candidates",
-	"generate_labels",
-	"generate_answer",
+    "chunk_docx",
+    "chunk_documents",
+    "fetch_chunks_for_document",
+    "fetch_chunks_for_documents",
+    "index_document",
 ]

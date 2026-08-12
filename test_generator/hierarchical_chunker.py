@@ -1,5 +1,5 @@
 import re
-from typing import Dict, List
+from typing import Dict, List, Optional, Tuple
 
 from .chunker import (
     DEFAULT_SEPARATORS,
@@ -9,87 +9,143 @@ from .chunker import (
 from .utils import assign_chunk_ids
 
 # ==========================================================
-# Regex nhận diện heading theo 2 cấp.
-# Cấp 1 (danh mục): tiêu đề lớn - vd "PHẦN I", "CHƯƠNG 2", dòng IN HOA dài,
-#                    hoặc "BẢNG ĐIỂM HỌC PHẦN: ...".
-# Cấp 2 (đề mục)  : tiêu đề phụ trong 1 danh mục - vd "Lớp: ...",
-#                    "Môn: ...", "1.1 ...", "a) ...".
-#
-# CHỈNH LẠI CHO KHỚP VĂN BẢN THẬT trước khi dùng.
+# BỘ REGEX NHẬN DIỆN TIÊU ĐỀ TỔNG QUÁT (GENERIC HEADING PATTERNS)
+# Được sắp xếp theo thứ tự cấp độ từ cao đến thấp (Cấp 1 -> Cấp N)
 # ==========================================================
 
-DANH_MUC_PATTERNS = [
-    re.compile(r"^\s*(PHẦN|CHƯƠNG)\s+[IVXLCDM\d]+[\.\:]?\s*.*$", re.MULTILINE),
-    re.compile(r"^\s*[IVXLCDM]+\.\s+[A-ZÀ-Ỵ].*$", re.MULTILINE),          # I. TIÊU ĐỀ
-    re.compile(r"^\s*BẢNG\s+ĐIỂM.*$", re.MULTILINE | re.IGNORECASE),      # BẢNG ĐIỂM HỌC PHẦN ...
-    re.compile(r"^\s*[A-ZÀ-Ỵ0-9\s,\.\-]{10,}$", re.MULTILINE),            # dòng IN HOA dài (tiêu đề)
+GENERIC_HEADING_PATTERNS = [
+    # Cấp 1: Markdown H1 (#) hoặc Phần/Chương/Mục La Mã (I., II.) hoặc Dòng IN HOA độc lập
+    re.compile(
+        r"^\s*(?:#\s+|(?:PHẦN|CHƯƠNG|PART|SECTION)\s+[IVXLCDM\d]+[\.\:]?\s+.*|[IVXLCDM]+\.\s+[A-ZÀ-Ỵ].*|^[A-ZÀ-Ỵ0-9\s,\.\-]{8,}$)",
+        re.MULTILINE
+    ),
+    # Cấp 2: Markdown H2 (##) hoặc Mục số cấp 1 (1., 2.) hoặc Chữ cái hoa (A., B.)
+    re.compile(
+        r"^\s*(?:##\s+|\d+\.\s+[A-ZÀ-Ỵa-zà-ỵ].*|[A-Z]\.\s+[A-ZÀ-Ỵa-zà-ỵ].*)",
+        re.MULTILINE
+    ),
+    # Cấp 3: Markdown H3 (###) hoặc Mục số cấp 2 (1.1, 1.2)
+    re.compile(
+        r"^\s*(?:###\s+|\d+\.\d+\.?\s+.*)",
+        re.MULTILINE
+    ),
+    # Cấp 4: Markdown H4 (####) hoặc Mục số cấp 3 (1.1.1) hoặc Đầu dòng dạng a), b)
+    re.compile(
+        r"^\s*(?:####\s+|\d+\.\d+\.\d+\.?\s+.*|[a-zđ]\)\s+.*)",
+        re.MULTILINE
+    ),
 ]
 
-DE_MUC_PATTERNS = [
-    re.compile(r"^\s*(Lớp|Môn|Học phần|Kỳ thi|Bảng)\s*[:\-]\s*.+$", re.MULTILINE | re.IGNORECASE),
-    re.compile(r"^\s*\d+\.\d+\.?\s+.+$", re.MULTILINE),                    # 1.1  Tiêu đề phụ
-    re.compile(r"^\s*[a-zđ]\)\s+.+$", re.MULTILINE),                       # a) Tiêu đề phụ
-]
 
-
-def _find_headings(text: str, patterns) -> List[tuple]:
+def _find_headings_at_level(text: str, pattern: re.Pattern) -> List[Tuple[int, int, str]]:
+    """Tìm tất cả tiêu đề khớp với 1 regex cụ thể trong văn bản."""
     matches = []
-    for pattern in patterns:
-        for m in pattern.finditer(text):
-            raw = m.group()
-            title = raw.strip()
-            if not title:
-                continue
-            leading_ws = len(raw) - len(raw.lstrip())
-            trailing_ws = len(raw) - len(raw.rstrip())
-            real_start = m.start() + leading_ws
-            real_end = m.end() - trailing_ws
-            matches.append((real_start, real_end, title))
+    for m in pattern.finditer(text):
+        raw = m.group()
+        title = raw.strip()
+        # Loại bỏ các ký tự Markdown # ở đầu tiêu đề nếu có
+        title = re.sub(r"^#+\s*", "", title)
+        if not title:
+            continue
+        leading_ws = len(raw) - len(raw.lstrip())
+        trailing_ws = len(raw) - len(raw.rstrip())
+        real_start = m.start() + leading_ws
+        real_end = m.end() - trailing_ws
+        matches.append((real_start, real_end, title))
 
     matches.sort(key=lambda x: x[0])
 
+    # Khử trùng lặp các match nằm quá gần nhau
     deduped = []
     for start, end, title in matches:
-        # 2 pattern khác nhau khớp cùng 1 dòng (offset rất gần) -> chỉ giữ 1
         if deduped and start - deduped[-1][0] < 3:
             continue
         deduped.append((start, end, title))
     return deduped
 
 
-def _split_by_headings(text: str, patterns) -> List[Dict]:
-    """Chia text thành block theo heading cấp hiện tại.
-
-    Trả list dict {"title": str | None, "body": str}. Nếu không tìm thấy
-    heading nào, trả về đúng 1 block với title=None (toàn bộ text là body).
-    """
-    headings = _find_headings(text, patterns)
+def _split_text_by_pattern(text: str, pattern: re.Pattern) -> List[Dict]:
+    """Chia nhỏ đoạn văn bản theo một mẫu Regex tiêu đề nhất định."""
+    headings = _find_headings_at_level(text, pattern)
 
     if not headings:
         return [{"title": None, "body": text}]
 
     blocks = []
-
+    # Đoạn văn bản trước tiêu đề đầu tiên (nếu có)
     if headings[0][0] > 0:
         pre = text[: headings[0][0]].strip()
         if pre:
             blocks.append({"title": None, "body": pre})
 
+    # Cắt từng block theo vị trí các tiêu đề
     for i, (start, end, title) in enumerate(headings):
         next_start = headings[i + 1][0] if i + 1 < len(headings) else len(text)
-        body = text[end:next_start].strip()  # dùng thẳng end của match, không suy từ len(title)
+        body = text[end:next_start].strip()
         blocks.append({"title": title, "body": body})
 
     return blocks
 
 
-def split_documents_hierarchical(documents) -> List[Dict]:
-    """Chunking phân cấp 3 tầng: DANH MỤC -> ĐỀ MỤC -> leaf chunk (token-aware).
+def _recursive_tree_split(
+    text: str,
+    patterns: List[re.Pattern],
+    current_level_idx: int = 0,
+    parent_titles: Optional[List[str]] = None,
+) -> List[Dict]:
+    """Chia văn bản đệ quy theo cây đa cấp dựa trên danh sách các Pattern tiêu đề."""
+    if parent_titles is None:
+        parent_titles = []
 
-    Mỗi leaf chunk trả về có:
-      - chunk["text"]              : "[breadcrumb]\\n<nội dung>" (đã chèn ngữ cảnh)
-      - chunk["metadata"]["danh_muc"], ["de_muc"], ["breadcrumb"] : để lọc/debug
+    # Nếu đã đi hết các cấp Pattern tiêu đề -> Trả về khối lá (Leaf Block)
+    if current_level_idx >= len(patterns) or not text.strip():
+        return [{"titles": parent_titles, "body": text}]
+
+    current_pattern = patterns[current_level_idx]
+    blocks = _split_text_by_pattern(text, current_pattern)
+
+    # Nếu pattern hiện tại không tìm thấy tiêu đề nào, thử xuống cấp tiêu đề tiếp theo
+    if len(blocks) == 1 and blocks[0]["title"] is None:
+        return _recursive_tree_split(
+            text, patterns, current_level_idx + 1, parent_titles
+        )
+
+    results = []
+    for block in blocks:
+        title = block["title"]
+        body = block["body"]
+
+        # Cập nhật danh sách tiêu đề cha (Path/Breadcrumb)
+        new_titles = list(parent_titles)
+        if title:
+            new_titles.append(title)
+
+        if not body.strip():
+            continue
+
+        # Đệ quy xuống các cấp tiêu đề tiếp theo cho phần body
+        child_results = _recursive_tree_split(
+            body, patterns, current_level_idx + 1, new_titles
+        )
+        results.extend(child_results)
+
+    return results
+
+
+def split_documents_hierarchical(
+    documents,
+    heading_patterns: Optional[List[re.Pattern]] = None
+) -> List[Dict]:
+    """Chunking phân cấp dạng Cây (N-level Dynamic Tree Chunking).
+
+    Args:
+        documents: Danh sách tài liệu đầu vào (mỗi doc có page_content, metadata).
+        heading_patterns: Danh sách Regex phân cấp tiêu đề (nếu None sẽ dùng bộ mặc định).
+
+    Returns:
+        Danh sách các leaf chunks chứa text đã đính kèm breadcrumb và metadata phân cấp.
     """
+    patterns = heading_patterns or GENERIC_HEADING_PATTERNS
     all_chunks = []
 
     for doc in documents:
@@ -98,38 +154,45 @@ def split_documents_hierarchical(documents) -> List[Dict]:
         source = base_meta.get("source") or base_meta.get("file_name") or "unknown"
         base_meta["source"] = source
 
-        danh_muc_blocks = _split_by_headings(content, DANH_MUC_PATTERNS)
+        # 1. Phân rã văn bản thành các khối lá trên Cây tiêu đề
+        tree_leaf_blocks = _recursive_tree_split(content, patterns)
 
-        for dm_block in danh_muc_blocks:
-            danh_muc_title = dm_block["title"]
-            de_muc_blocks = _split_by_headings(dm_block["body"], DE_MUC_PATTERNS)
+        # 2. Xử lý từng khối lá (Chia theo Token/Size tối đa)
+        for block in tree_leaf_blocks:
+            titles = block["titles"]
+            body_text = block["body"]
 
-            for de_block in de_muc_blocks:
-                de_muc_title = de_block["title"]
+            if not body_text.strip():
+                continue
 
-                leaf_text = _normalize_table_row_boundaries(de_block["body"])
-                leaf_texts = _tla_split_text(leaf_text, DEFAULT_SEPARATORS)
+            # Chuẩn hóa bảng & Chia nhỏ văn bản cấp lá (Token-aware splitting)
+            normalized_body = _normalize_table_row_boundaries(body_text)
+            leaf_texts = _tla_split_text(normalized_body, DEFAULT_SEPARATORS)
 
-                breadcrumb_parts = [t for t in [danh_muc_title, de_muc_title] if t]
-                breadcrumb = " > ".join(breadcrumb_parts)
+            # Xây dựng đường dẫn Breadcrumb (VD: "Chương 1 > Mục 1.1 > Khái niệm")
+            breadcrumb = " > ".join(titles) if titles else ""
 
-                for text in leaf_texts:
-                    if not text.strip():
-                        continue
+            for text in leaf_texts:
+                if not text.strip():
+                    continue
 
-                    meta = {
-                        **base_meta,
-                        "danh_muc": danh_muc_title,
-                        "de_muc": de_muc_title,
-                        "breadcrumb": breadcrumb,
-                    }
+                # Tạo metadata linh hoạt lưu danh sách tiêu đề các cấp
+                meta = {
+                    **base_meta,
+                    "headings": titles,
+                    "breadcrumb": breadcrumb,
+                }
+                
+                # Lưu thêm các cấp riêng lẻ nếu cần tương thích ngược
+                for i, t in enumerate(titles):
+                    meta[f"level_{i+1}"] = t
 
-                    full_text = f"[{breadcrumb}]\n{text}" if breadcrumb else text
+                full_text = f"[{breadcrumb}]\n{text}" if breadcrumb else text
 
-                    all_chunks.append({
-                        "chunk_id": None,
-                        "text": full_text,
-                        "metadata": meta,
-                    })
+                all_chunks.append({
+                    "chunk_id": None,
+                    "text": full_text,
+                    "metadata": meta,
+                })
 
     return assign_chunk_ids(all_chunks)

@@ -2,7 +2,7 @@ import json
 import os
 
 from test_generator.parser import load_pdf
-from test_generator.hierarchical_chunker import split_documents_hierarchical
+from test_generator.production_chunker import chunk_documents          # ← ĐỔI: thay hierarchical_chunker
 from test_generator.exporter import export_chunks
 
 from test_generator.question_generator import generate_questions
@@ -36,7 +36,13 @@ def main():
     for file_path in ["data/Diem-CK_HP.pdf", "data/OOP_2013.pdf"]:
         documents.extend(load_pdf(file_path))
 
-    chunks = split_documents_hierarchical(documents)
+    # ĐỔI: split_documents_hierarchical(documents) -> chunk_documents(documents)
+    # Cùng input (list Document từ PyPDFLoader), cùng output format
+    # {chunk_id, text, metadata} -- nhưng giờ tiêu đề được LLM suy luận
+    # (giống luồng indexing production) thay vì regex cố định, và các trang
+    # cùng 1 file được gộp lại trước khi dựng cây để giữ mạch tiêu đề
+    # xuyên suốt (không bị cắt rời theo từng trang như bản cũ).
+    chunks = chunk_documents(documents)
 
     export_chunks(chunks, "output/chunks.json")
 
