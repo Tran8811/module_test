@@ -22,14 +22,6 @@ HALF_DOCUMENTS = True
 
 
 def _index_by_id(chunks):
-    """Build a chunk_id -> chunk lookup.
-
-    IMPORTANT: `chunks` fetched from the DB is not guaranteed to be a
-    list indexed by chunk_id -- chunk_id is a global id assigned at
-    ingest time, while `chunks` here is only the subset belonging to
-    the selected document_ids. Always look chunks up by their
-    `chunk_id` field, never by list position (chunks[cid]).
-    """
     return {c["chunk_id"]: c for c in chunks}
 
 
