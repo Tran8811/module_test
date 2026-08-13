@@ -12,22 +12,10 @@ from test_generator.answer_generator import generate_answer
 
 
 def _index_by_id(chunks):
-    """Build a chunk_id -> chunk lookup.
-
-    IMPORTANT: never index `chunks` by list position (chunks[cid]).
-    `chunk_id` is a data field, not guaranteed to equal the item's
-    position in the list -- it happens to line up when chunking a
-    fresh run over a small, fixed set of PDFs (as this script does),
-    but breaks the moment chunk_id is non-contiguous, doesn't start at
-    0, or `chunks` is a subset of a larger corpus (e.g. the DB-backed
-    runner). Always look chunks up by their `chunk_id` field.
-    """
     return {c["chunk_id"]: c for c in chunks}
 
 
 def _save_progress(retrieval_dataset, qa_dataset, failed_items):
-    """Write current progress to disk. Safe to call repeatedly -- overwrites
-    each time, so a crash never loses more than the current in-flight item."""
     os.makedirs("output", exist_ok=True)
 
     with open("output/retrieval_test.json", "w", encoding="utf-8") as f:
@@ -50,12 +38,7 @@ def main():
     for file_path in ["data/Diem-CK_HP.pdf", "data/OOP_2013.pdf"]:
         documents.extend(load_pdf(file_path))
 
-    # ĐỔI: split_documents_hierarchical(documents) -> chunk_documents(documents)
-    # Cùng input (list Document từ PyPDFLoader), cùng output format
-    # {chunk_id, text, metadata} -- nhưng giờ tiêu đề được LLM suy luận
-    # (giống luồng indexing production) thay vì regex cố định, và các trang
-    # cùng 1 file được gộp lại trước khi dựng cây để giữ mạch tiêu đề
-    # xuyên suốt (không bị cắt rời theo từng trang như bản cũ).
+
     chunks = chunk_documents(documents)
 
     export_chunks(chunks, "output/chunks.json")
@@ -66,17 +49,13 @@ def main():
 
     retrieval_dataset = []
     qa_dataset = []
-    failed_items = []  # every skipped chunk/question is recorded here, with the error, so nothing silently disappears
+    failed_items = [] 
 
     # ==========================
     # 2. Generate Dataset
     # ==========================
 
     for chunk_index, chunk in enumerate(chunks):
-
-        # --------------------------
-        # Question Generation (also an LLM call -- can fail the same way)
-        # --------------------------
         try:
             questions = generate_questions(chunk, all_chunks=chunks)
         except Exception as exc:
@@ -164,10 +143,6 @@ def main():
                 print("Answer:", answer)
 
             except Exception as exc:
-                # Any LLM call above (retrieval / labeling / answer) can
-                # fail even after llm.py's own retries are exhausted (e.g.
-                # the server pod stayed down longer than the retry budget).
-                # Skip just this question instead of losing the whole run.
                 print(f"[SKIP-QUESTION] {question_text!r} failed: {exc}")
                 failed_items.append({
                     "stage": "retrieve/label/answer",
@@ -178,7 +153,7 @@ def main():
                 continue
 
             # --------------------------
-            # Retrieval Sample (include chunk origin metadata)
+            # Retrieval Sample 
             # --------------------------
 
             def _chunk_info(item):
@@ -222,14 +197,8 @@ def main():
                 }
             )
 
-            # Save after every successful question too, so a crash never
-            # rolls back further than the item currently in flight.
             _save_progress(retrieval_dataset, qa_dataset, failed_items)
 
-    # ==========================
-    # 3. Final export (progress was already saved incrementally above,
-    #    this just guarantees the final on-disk state matches memory)
-    # ==========================
 
     _save_progress(retrieval_dataset, qa_dataset, failed_items)
 
