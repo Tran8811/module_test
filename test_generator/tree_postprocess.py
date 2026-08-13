@@ -1,12 +1,11 @@
 # tree_postprocess.py
 """
-Tương đương traverse_and_replace() + process_tree() bên production:
   1. insert_tables_and_split(): thay placeholder <tab>id</tab> bằng HTML
      bảng thật ở các node lá; nếu node lá sau đó quá dài thì cắt nhỏ bằng
      bộ splitter token-aware sẵn có trong chunker.py.
-  2. process_tree(): gộp cây để tránh leaf quá nhỏ / header trơ trọi:
+  2. process_tree(): gộp cây để tránh lá quá nhỏ / header trơ trọi:
        - merge_with_parent: gộp cha-con nếu tổng nhỏ và không có cháu
-       - merge_sibling_nodes: gộp các leaf anh em liền kề tới ngưỡng
+       - merge_sibling_nodes: gộp các lá anh em liền kề tới ngưỡng
        - merge_with_header: gộp header ngắn/rỗng vào con đầu tiên
        - format_tree_structure: đảm bảo mọi node cha có ít nhất 1 con lá thật
 """
@@ -15,8 +14,6 @@ import re
 from .chunker import DEFAULT_SEPARATORS, _normalize_table_row_boundaries, _tla_split_text, _token_count
 from .tree_node import TreeNode
 
-# Ngưỡng giống production (đơn vị: token xấp xỉ theo word-count, nhất quán
-# với cách đếm token đang dùng trong toàn bộ project).
 MAX_LEAF_TOKENS_BEFORE_SPLIT = 4000     # leaf > ngưỡng này thì phải cắt
 MERGE_PARENT_MAX_TOKENS = 500           # gộp cha-con nếu tổng <= ngưỡng
 MERGE_SIBLING_MAX_TOKENS = 1000         # gộp 2 leaf anh em nếu tổng < ngưỡng

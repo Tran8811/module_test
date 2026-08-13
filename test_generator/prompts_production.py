@@ -1,7 +1,6 @@
 # prompts_production.py
 """
-Prompt riêng cho pipeline chunking kiểu production (LLM tự suy luận cấu trúc
-tiêu đề, thay vì dùng regex cố định như hierarchical_chunker.py cũ).
+Prompt riêng cho pipeline chunking kiểu production
 """
 
 TOC_EXTRACTION_PROMPT = """Bạn đang phân tích cấu trúc phân cấp (mục lục) của một văn bản.

@@ -56,7 +56,20 @@ def parse_answer_response(text):
         return {"answer": "Not enough information to answer the question."}
 
 
+def _index_by_id(chunks):
+    """Build a chunk_id -> chunk lookup.
+
+    IMPORTANT: `chunks` is not guaranteed to be a list indexed by
+    chunk_id (subsets, filtering, or non-contiguous ids all break that
+    assumption). Always look chunks up by their `chunk_id` field, never
+    by list position.
+    """
+    return {c["chunk_id"]: c for c in chunks}
+
+
 def build_chunks(labels, chunks):
+
+    by_id = _index_by_id(chunks)
 
     result = []
 
@@ -64,12 +77,18 @@ def build_chunks(labels, chunks):
 
         cid = item["chunk_id"]
 
+        chunk = by_id.get(cid)
+        if chunk is None:
+            # labeled id doesn't correspond to any known chunk; skip it
+            # rather than silently pulling in the wrong chunk by position.
+            continue
+
         result.append(
             f"""
 ID: {cid}
 
 Content:
-{chunks[cid]["text"]}
+{chunk["text"]}
 
 ------------------------
 """

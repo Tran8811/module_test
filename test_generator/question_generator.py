@@ -53,6 +53,17 @@ def _format_related_chunks(chunks):
     return "\n\n".join(parts)
 
 
+# ---------------------------------------------------------------------
+# Chấm điểm độ liên quan giữa 2 đoạn text bằng word-overlap đơn giản
+# (không cần import candidate_retriever để tránh phụ thuộc vòng, nhưng
+# cùng ý tưởng: đếm số từ chung, ưu tiên từ dài/hiếm hơn).
+# ---------------------------------------------------------------------
+def _overlap_score(text_a: str, text_b: str) -> int:
+    tokens_a = set(re.findall(r"\w{4,}", text_a.lower()))  # bỏ từ quá ngắn (ít thông tin)
+    tokens_b = set(re.findall(r"\w{4,}", text_b.lower()))
+    return len(tokens_a & tokens_b)
+
+
 def _select_related_chunks(chunk, all_chunks, limit=2):
     source = chunk.get("metadata", {}).get("source")
     same_source = []
@@ -69,8 +80,23 @@ def _select_related_chunks(chunk, all_chunks, limit=2):
     related = []
     if same_source:
         related.append(same_source[0])
+
     if other_source and len(related) < limit:
-        related.append(other_source[0])
+        # QUAN TRỌNG: không lấy other_source[0] (chunk đầu tiên bất kỳ,
+        # ngẫu nhiên, có thể hoàn toàn lạc đề) -- chọn chunk khác nguồn
+        # NỘI DUNG GẦN NHẤT với main chunk, để câu hỏi multi-hop sinh ra
+        # thực sự kết hợp 2 nội dung có liên quan, tránh model lẫn lộn
+        # chi tiết giữa 2 tài liệu không ăn nhập.
+        scored = [(_overlap_score(chunk["text"], o["text"]), o) for o in other_source]
+        scored.sort(key=lambda x: x[0], reverse=True)
+
+        best_score, best_chunk = scored[0]
+        if best_score > 0:
+            related.append(best_chunk)
+        # Nếu điểm overlap cao nhất vẫn = 0 (không chunk nào khác nguồn có
+        # từ chung nào với main chunk) -> KHÔNG thêm related chunk khác
+        # nguồn nữa, thà thiếu còn hơn thêm nhiễu hoàn toàn không liên quan.
+
     for other in same_source[1:limit]:
         if len(related) < limit:
             related.append(other)

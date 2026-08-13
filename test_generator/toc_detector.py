@@ -4,7 +4,6 @@ Thay cho GENERIC_HEADING_PATTERNS (regex) trong hierarchical_chunker.py cũ:
 dùng LLM đọc và suy luận cấp tiêu đề, giống hệt cơ chế docx2tree() /
 PROMPT_EXTRACT_TOC của hệ thống indexing production.
 
-Vì sao đổi từ regex sang LLM:
 - Regex chỉ bắt được các mẫu định dạng đã biết trước (số La Mã, markdown #,
   IN HOA...). Văn bản thực tế rất đa dạng cách trình bày tiêu đề.
 - LLM đọc ngữ nghĩa nên nhận diện được cả tiêu đề không theo mẫu cố định,

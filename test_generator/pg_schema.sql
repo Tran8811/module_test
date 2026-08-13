@@ -1,6 +1,5 @@
 -- pg_schema.sql
--- Schema tối giản, tương đương models/node.py + models/node_link.py bên
--- production. Chạy 1 lần trên container pgvector/pgvector:0.8.6-pg17-trixie
+--  Chạy 1 lần trên container pgvector/pgvector:0.8.6-pg17-trixie
 -- trước khi dùng pg_writer.py / pg_reader.py.
 
 CREATE EXTENSION IF NOT EXISTS vector;
