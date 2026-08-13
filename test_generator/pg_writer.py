@@ -104,12 +104,6 @@ def index_document(
 
     return document_id
 
-
-# ---------------------------------------------------------------------
-# Ví dụ dùng kèm production_chunker (cần cây thô, không dùng chunk_docx()
-# vì hàm đó đã "làm phẳng" cây thành list — sửa production_chunker.py 1
-# dòng để trả thêm `root`, hoặc gọi lại từng bước thủ công như dưới đây).
-# ---------------------------------------------------------------------
 if __name__ == "__main__":
     from .docx_parser import extract_docx_lines
     from .toc_detector import detect_heading_levels

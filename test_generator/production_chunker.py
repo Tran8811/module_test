@@ -1,18 +1,3 @@
-# production_chunker.py
-"""
-Chunk giống hệt luồng indexing production. Có 2 hàm entry point:
-
-  - chunk_docx(path)          : FLOW dành cho 1 file .docx thật (có bảng HTML
-                                 thật, đọc bằng python-docx).
-  - chunk_documents(documents): thay thế TRỰC TIẾP cho
-                                 split_documents_hierarchical(documents) cũ —
-                                 nhận list Document (page_content + metadata)
-                                 như PyPDFLoader trả về, ví dụ input hiện tại
-                                 của main.py (load_pdf() trên file .pdf).
-
-Cả 2 hàm trả về cùng format:
-    list[{"chunk_id": int, "text": str, "metadata": {...}}]
-"""
 import os
 
 from .docx_parser import extract_docx_lines
@@ -48,8 +33,8 @@ def chunk_docx(path: str, source_name: str | None = None) -> list[dict]:
 
 def _group_pages_by_source(documents) -> list[tuple[str, str]]:
     """PyPDFLoader trả 1 Document/trang, cùng 1 file có cùng metadata.source.
-    Gộp lại thành TOÀN VĂN theo đúng thứ tự trang, để dựng cây trên cả file
-    (giữ mạch tiêu đề xuyên trang) thay vì cắt rời từng trang như hàm cũ."""
+    Gộp lại thành TOÀN VĂN theo đúng thứ tự trang, để dựng cây trên cả file 
+    thay vì cắt rời từng trang."""
     order: list[str] = []
     pages: dict[str, list[str]] = {}
 
@@ -69,12 +54,9 @@ def _text_to_lines(text: str) -> list[str]:
 
 
 def chunk_documents(documents) -> list[dict]:
-    """Thay thế trực tiếp cho split_documents_hierarchical(documents) cũ.
-
+    """
     Nhận list Document (đầu ra của load_pdf() hoặc bất kỳ loader nào có
-    .page_content/.metadata). KHÔNG có bảng HTML thật (PyPDFLoader không
-    giữ cấu trúc bảng) — đây là giới hạn giống hệt bản chunker regex cũ,
-    không phải lỗi mới phát sinh.
+    .page_content/.metadata).
     """
     all_chunks: list[dict] = []
 
@@ -105,7 +87,4 @@ def chunk_documents(documents) -> list[dict]:
                     },
                 }
             )
-
-    # assign_chunk_ids GỌI MỘT LẦN DUY NHẤT ở cuối, sau khi đã gộp hết các
-    # file -> chunk_id không bị trùng giữa các file (xem lưu ý trong README).
     return assign_chunk_ids(all_chunks)
