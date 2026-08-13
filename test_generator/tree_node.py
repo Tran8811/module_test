@@ -1,4 +1,3 @@
-# tree_node.py
 """
 Cấu trúc cây phân cấp tài liệu. Mọi module chunking mới (docx_parser, tree_builder,
 tree_postprocess, tree_to_chunks) đều thao tác trên cấu trúc này.

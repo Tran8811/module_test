@@ -174,12 +174,9 @@ def _apply_overlap(chunks: list[dict]) -> None:
 
 
 def split_documents(documents):
-    """Split documents into token-aware chunks preserving tables/images."""
     chunks = []
     for doc in documents:
         content = doc.page_content or ""
-        # Normalize and ensure explicit source metadata fields so downstream
-        # consumers (indexers, exporters) always see where a chunk came from.
         base_meta = {**(getattr(doc, "metadata", {}) or {})}
         source = base_meta.get("source") or base_meta.get("file_name") or base_meta.get("path")
         if not source and hasattr(doc, "metadata") and isinstance(doc.metadata, dict):
