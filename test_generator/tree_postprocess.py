@@ -1,4 +1,3 @@
-# tree_postprocess.py
 """
   1. insert_tables_and_split(): thay placeholder <tab>id</tab> bằng HTML
      bảng thật ở các node lá; nếu node lá sau đó quá dài thì cắt nhỏ bằng

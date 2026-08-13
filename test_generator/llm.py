@@ -9,37 +9,33 @@ headers = {
     "Authorization": "Bearer dummy"
 }
 
-# Rough characters-per-token ratio. Word-splitting badly UNDER-estimates
-# token count for Vietnamese (diacritics/subword tokenization commonly
-# produce 1.5-3 tokens per word), which was the real cause of prompts
-# silently passing the local check and still getting rejected by the
-# server -> falling back to a near-empty prompt -> missing candidates.
-# A char-based estimate is safer and doesn't need any network call
-# (unlike tiktoken, which needs to download encoding files on first use
-# and will fail on machines without internet access, like an internal
-# LLM host such as 10.0.128.19).
-CHARS_PER_TOKEN = 2.2  # conservative for Vietnamese; tune with real usage data below
+CHARS_PER_TOKEN = 2.2
 
 
 def _estimate_tokens(text: str) -> int:
-    """Character-based token estimate (no network dependency).
+    """Ước lượng số token dựa trên số lượng ký tự, không phụ thuộc vào network.
 
-    This intentionally over-estimates slightly rather than
-    under-estimating: it's much cheaper to trim one extra chunk than to
-    silently drop the chunk that actually contains the answer.
+    Cách này cố tình ước lượng cao hơn một chút thay vì ước lượng thấp:
+    việc cắt bỏ thêm một chunk sẽ ít tốn kém hơn so với việc vô tình bỏ qua
+    chunk thực sự chứa câu trả lời.
     """
     if not text:
         return 0
     return int(len(text) / CHARS_PER_TOKEN) + 1
 
 
-def _estimate_payload_tokens(prompt: str, extra: Dict[str, Any] | None = None) -> int:
+def _estimate_payload_tokens(
+    prompt: str,
+    extra: Dict[str, Any] | None = None
+) -> int:
     t = _estimate_tokens(prompt)
-    overhead = 50  # JSON/message wrapper overhead
+    overhead = 50  # Phần overhead ước tính của wrapper JSON/message
+
     if extra:
         for v in extra.values():
             if isinstance(v, str):
                 t += _estimate_tokens(v)
+
     return t + overhead
 
 
@@ -48,6 +44,7 @@ def chat(prompt: str, max_retries: int = 5, backoff_seconds: float = 5.0):
     total_estimated = input_tokens + MAX_TOKENS
 
     allowed = MODEL_CONTEXT_WINDOW - CONTEXT_WINDOW_SAFETY_MARGIN
+
     if total_estimated > allowed:
         raise requests.HTTPError(
             f"ContextWindowExceededError: estimated input_tokens={input_tokens}, "
@@ -69,6 +66,7 @@ def chat(prompt: str, max_retries: int = 5, backoff_seconds: float = 5.0):
     }
 
     last_exc = None
+
     for attempt in range(1, max_retries + 1):
         try:
             response = requests.post(
@@ -78,47 +76,65 @@ def chat(prompt: str, max_retries: int = 5, backoff_seconds: float = 5.0):
                 timeout=120
             )
             response.raise_for_status()
+
         except requests.exceptions.HTTPError as exc:
             body = response.text if response is not None else ""
             status = response.status_code if response is not None else None
+
             last_exc = requests.HTTPError(
-                f"{exc}\nLLM request payload length={len(str(payload))}, response body={body}"
+                f"{exc}\n"
+                f"LLM request payload length={len(str(payload))}, "
+                f"response body={body}"
             )
-            # 503 = pod not up yet. 500 here means the inference engine
-            # itself crashed mid-request (seen in practice with very large
-            # candidate-selection prompts) -- the pod may come back after
-            # a restart, so both are worth retrying with a longer backoff
-            # than a simple context/payload problem would need.
+
+            # 503 = pod chưa sẵn sàng.
+            # 500 = inference engine đã bị crash giữa request
+            # (thực tế có thể xảy ra khi prompt dùng để chọn candidate quá lớn).
+            # Pod có thể hoạt động trở lại sau khi restart, vì vậy cả hai lỗi này
+            # đều đáng để retry với thời gian chờ dài hơn so với lỗi thông thường
+            # liên quan đến context/payload.
             if status in (500, 503) and attempt < max_retries:
-                wait = backoff_seconds * (2 ** (attempt - 1))  # exponential: 5s, 10s, 20s...
-                print(f"[llm-retry] status={status} attempt={attempt}/{max_retries}, waiting {wait:.0f}s before retry")
+                # Thời gian chờ tăng theo cấp số nhân: 5s, 10s, 20s, ...
+                wait = backoff_seconds * (2 ** (attempt - 1))
+
+                print(
+                    f"[llm-retry] status={status} "
+                    f"attempt={attempt}/{max_retries}, "
+                    f"waiting {wait:.0f}s before retry"
+                )
+
                 time.sleep(wait)
                 continue
+
             raise last_exc from exc
+
         except requests.exceptions.RequestException as exc:
-            # network-level errors (timeout, connection refused, etc.) -> also transient
             last_exc = exc
+
             if attempt < max_retries:
                 time.sleep(backoff_seconds * attempt)
                 continue
+
             raise
 
         data = response.json()
 
-        # Calibrate our estimate against the real token usage the server
-        # reports, when available, so CHARS_PER_TOKEN can be tuned later
-        # instead of guessed blindly.
+        # Hiệu chỉnh lại phép ước lượng dựa trên số token thực tế
+        # mà server trả về, nếu có, để sau này có thể điều chỉnh
+        # CHARS_PER_TOKEN thay vì phải sử dụng một giá trị ước lượng cố định.
         usage = data.get("usage")
+
         if usage and usage.get("prompt_tokens"):
             real_tokens = usage["prompt_tokens"]
             ratio = len(prompt) / real_tokens if real_tokens else None
+
             if ratio:
                 print(
-                    f"[token-calibration] estimated={input_tokens} real={real_tokens} "
-                    f"implied_chars_per_token={ratio:.2f} (current constant={CHARS_PER_TOKEN})"
+                    f"[token-calibration] estimated={input_tokens} "
+                    f"real={real_tokens} "
+                    f"implied_chars_per_token={ratio:.2f} "
+                    f"(current constant={CHARS_PER_TOKEN})"
                 )
 
         return data["choices"][0]["message"]["content"]
-
-    # Should not reach here, but just in case.
     raise last_exc

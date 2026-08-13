@@ -46,15 +46,11 @@ _idf_cache = {}
 
 
 def _extract_phrases(question):
-    """Extract likely proper-noun phrases (e.g. a student's full name) from
-    the question, so we can reward chunks that contain that exact phrase."""
+    """Trích xuất những tên riêng, vd: Nguyễn Văn A để tìm """
     return [p.strip() for p in _PROPER_NOUN_RE.findall(question) if len(p.strip()) > 3]
 
 
 def _build_idf_index(chunks):
-    """Compute inverse-document-frequency for every token across all
-    chunks, cached by id(chunks) so repeated calls with the same chunk
-    list (typical within one run) don't recompute it every question."""
     cache_key = id(chunks)
     cached = _idf_cache.get(cache_key)
     if cached is not None:
@@ -88,10 +84,6 @@ def _score_chunk(question, chunk_text, idf, phrases):
         if count:
             score += count * idf.get(token, 1.0)
 
-    # Big flat bonus for chunks containing an exact proper-noun phrase from
-    # the question (e.g. the full student name). This is the single
-    # strongest signal we have and must not be drowned out by generic
-    # word-overlap noise.
     for phrase in phrases:
         if phrase.lower() in text_lower:
             score += 50.0

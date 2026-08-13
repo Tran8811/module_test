@@ -78,11 +78,66 @@ Content:
 
     return "\n".join(result)
 
+def _expand_table_neighbors(labels, candidate_ids, chunks, window=2, min_relevance=2):
+    """For table-type questions, a table is frequently split across
+    consecutive chunks during chunking (header/definitions in one chunk,
+    data rows or formula notes in the next). The LABEL_PROMPT scores each
+    candidate chunk in isolation, so a continuation chunk that doesn't
+    obviously mention the question's keywords can get relevance=0 and be
+    dropped -- even though it's the piece that actually answers "how is
+    it calculated". This re-adds same-source neighbor chunks (within
+    `window` chunk_ids) of any highly-relevant labeled chunk, as long as
+    they were already surfaced by retrieval (candidate_ids), so the
+    answer step gets the full contiguous table context instead of just
+    the one fragment the model happened to score highly.
+    """
+    by_id = _index_by_id(chunks)
+    candidate_set = set(candidate_ids)
+    labeled_ids = {item["chunk_id"] for item in labels}
+
+    extra = []
+    for item in labels:
+        if item["relevance"] < min_relevance:
+            continue
+
+        anchor = by_id.get(item["chunk_id"])
+        if anchor is None:
+            continue
+        source = anchor.get("metadata", {}).get("source")
+
+        for delta in range(-window, window + 1):
+            if delta == 0:
+                continue
+            neighbor_id = item["chunk_id"] + delta
+            if neighbor_id in labeled_ids or neighbor_id not in candidate_set:
+                continue
+
+            neighbor = by_id.get(neighbor_id)
+            if neighbor is None:
+                continue
+            if neighbor.get("metadata", {}).get("source") != source:
+                continue
+
+            # Nominal relevance so it's kept (relevance > 0) and sorted
+            # below chunks the model was actually confident about.
+            extra.append({"chunk_id": neighbor_id, "relevance": 1})
+            labeled_ids.add(neighbor_id)
+
+    return labels + extra
+
+
 def generate_labels(question, candidate_ids, chunks):
+
+    if isinstance(question, dict):
+        question_text = question.get("question", "")
+        qtype = question.get("type")
+    else:
+        question_text = str(question)
+        qtype = None
 
     prompt = LABEL_PROMPT.replace(
         "{question}",
-        question
+        question_text
     ).replace(
         "{chunks}",
         build_chunks(candidate_ids, chunks)
@@ -117,6 +172,9 @@ def generate_labels(question, candidate_ids, chunks):
                 "chunk_id": cid,
                 "relevance": relevance
             })
+
+    if qtype == "table":
+        cleaned = _expand_table_neighbors(cleaned, candidate_ids, chunks)
 
     cleaned.sort(
         key=lambda x: x["relevance"],

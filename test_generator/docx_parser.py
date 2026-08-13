@@ -1,17 +1,8 @@
-# docx_parser.py
 """
 Đọc file .docx và trả về:
   - lines: list[str] các dòng nội dung THEO ĐÚNG THỨ TỰ xuất hiện trong văn bản
            (bảng được thay bằng placeholder <tab>id</tab>, giống cơ chế production)
   - tables: dict[str, str]  id -> HTML string của bảng
-
-Cần cài: pip install python-docx
-
-Lưu ý so với bản production gốc:
-  - Không trích ảnh (<image>id</image>) — nếu cần, có thể mở rộng thêm bằng
-    cách duyệt document.inline_shapes, tương tự cách xử lý bảng bên dưới.
-  - Dùng python-docx thuần, không qua LLM/OCR, nên chỉ đọc được các file
-    .docx dạng text thật (không phải scan).
 """
 import re
 from docx import Document

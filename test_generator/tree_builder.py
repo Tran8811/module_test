@@ -1,8 +1,4 @@
-# tree_builder.py
 """
-Tương đương build_tree_from_df() bên production: dựng cây từ danh sách
-(line, level) đã được toc_detector gán nhãn.
-
 Thuật toán (stack theo level):
 - level >= 1 (tiêu đề): tạo node mới; cha là node gần nhất đang mở ở
   level-1 (nếu chưa có thì lùi dần); đóng mọi nhánh có level >= level hiện
@@ -24,7 +20,7 @@ def build_tree(lines: list[str], levels: dict[int, int], source_name: str) -> Tr
     root.content = source_name
     root.source = source_name
 
-    # current_nodes[level] = node đang "mở" ở level đó (nhánh hiện hành)
+    # current_nodes[level] = node đang mở ở level đó (nhánh hiện hành)
     current_nodes: dict[int, TreeNode] = {0: root}
     # leaf hiện tại đang gom nội dung thường, theo từng node cha (key = id node)
     current_leaf: dict[int, TreeNode | None] = {id(root): None}

@@ -11,6 +11,20 @@ from test_generator.label_generator import generate_labels
 from test_generator.answer_generator import generate_answer
 
 
+def _index_by_id(chunks):
+    """Build a chunk_id -> chunk lookup.
+
+    IMPORTANT: never index `chunks` by list position (chunks[cid]).
+    `chunk_id` is a data field, not guaranteed to equal the item's
+    position in the list -- it happens to line up when chunking a
+    fresh run over a small, fixed set of PDFs (as this script does),
+    but breaks the moment chunk_id is non-contiguous, doesn't start at
+    0, or `chunks` is a subset of a larger corpus (e.g. the DB-backed
+    runner). Always look chunks up by their `chunk_id` field.
+    """
+    return {c["chunk_id"]: c for c in chunks}
+
+
 def _save_progress(retrieval_dataset, qa_dataset, failed_items):
     """Write current progress to disk. Safe to call repeatedly -- overwrites
     each time, so a crash never loses more than the current in-flight item."""
@@ -45,6 +59,10 @@ def main():
     chunks = chunk_documents(documents)
 
     export_chunks(chunks, "output/chunks.json")
+
+    # Lookup theo chunk_id thật, dùng chung cho toàn bộ vòng lặp bên dưới
+    # thay vì index theo vị trí list (chunks[cid]).
+    chunks_by_id = _index_by_id(chunks)
 
     retrieval_dataset = []
     qa_dataset = []
@@ -91,7 +109,10 @@ def main():
                 def _print_chunk_refs(ids):
                     refs = []
                     for cid in ids:
-                        c = chunks[cid]
+                        c = chunks_by_id.get(cid)
+                        if c is None:
+                            refs.append({"chunk_id": cid, "error": "unknown chunk_id"})
+                            continue
                         m = c.get("metadata", {})
                         refs.append({
                             "chunk_id": cid,
@@ -107,7 +128,7 @@ def main():
                 # Label Generation
                 # --------------------------
                 labels = generate_labels(
-                    question_text,
+                    question,
                     candidate_ids,
                     chunks
                 )
@@ -117,7 +138,10 @@ def main():
                     labelled_refs = []
                     for it in labels:
                         cid = it.get("chunk_id")
-                        c = chunks[cid]
+                        c = chunks_by_id.get(cid)
+                        if c is None:
+                            labelled_refs.append({"chunk_id": cid, "error": "unknown chunk_id"})
+                            continue
                         m = c.get("metadata", {})
                         labelled_refs.append({
                             "chunk_id": cid,
@@ -159,7 +183,16 @@ def main():
 
             def _chunk_info(item):
                 cid = item.get("chunk_id")
-                chunk_ = chunks[cid]
+                chunk_ = chunks_by_id.get(cid)
+                if chunk_ is None:
+                    return {
+                        "chunk_id": cid,
+                        "relevance": item.get("relevance", 0),
+                        "source": None,
+                        "file_name": None,
+                        "text_snippet": None,
+                        "error": "unknown chunk_id",
+                    }
                 meta = chunk_.get("metadata", {})
                 snippet = chunk_["text"][:200].strip()
                 return {

@@ -1,10 +1,3 @@
-# tree_to_chunks.py
-"""
-Tương đương get_list_leaf() + get_parent_content() bên production, rồi
-convert sang đúng format {chunk_id, text, metadata} mà __init__.py hiện có
-(question_generator, candidate_retriever, label_generator, answer_generator,
-exporter) đang dùng — nên KHÔNG cần sửa 4 file đó.
-"""
 from .tree_node import TreeNode
 from .utils import assign_chunk_ids
 
@@ -21,8 +14,7 @@ def get_list_leaf(node: TreeNode) -> list[TreeNode]:
 
 def get_ancestor_breadcrumb(node: TreeNode) -> str:
     """Nối tiêu đề mọi node tổ tiên (không tính chính node này) thành
-    breadcrumb, giống cách production ghép get_parent_content() vào text
-    trước khi embedding."""
+    breadcrumb"""
     titles = []
     cur = node.parent
     while cur is not None:

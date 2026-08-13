@@ -3,7 +3,7 @@
 def assign_chunk_ids(chunks):
     """
     Gán ID duy nhất cho mỗi chunk.
-    """
+    """ 
     for idx, chunk in enumerate(chunks):
         if isinstance(chunk, dict):
             metadata = chunk.setdefault("metadata", {})

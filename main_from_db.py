@@ -21,6 +21,18 @@ ALL_DOCUMENTS = False
 HALF_DOCUMENTS = True
 
 
+def _index_by_id(chunks):
+    """Build a chunk_id -> chunk lookup.
+
+    IMPORTANT: `chunks` fetched from the DB is not guaranteed to be a
+    list indexed by chunk_id -- chunk_id is a global id assigned at
+    ingest time, while `chunks` here is only the subset belonging to
+    the selected document_ids. Always look chunks up by their
+    `chunk_id` field, never by list position (chunks[cid]).
+    """
+    return {c["chunk_id"]: c for c in chunks}
+
+
 def _save_progress(retrieval_dataset, qa_dataset, failed_items):
     os.makedirs("output", exist_ok=True)
 
@@ -69,6 +81,10 @@ def main():
 
     export_chunks(chunks, "output/chunks_from_db.json")
 
+    # Lookup theo chunk_id thật (đặc biệt quan trọng ở luồng DB, vì
+    # chunk_id là global id, không đảm bảo trùng vị trí trong subset này).
+    chunks_by_id = _index_by_id(chunks)
+
     retrieval_dataset = []
     qa_dataset = []
     failed_items = []
@@ -99,7 +115,7 @@ def main():
                 candidate_ids = retrieve_candidates(question, chunks, top_k=5)
                 print("Candidate IDs:", candidate_ids)
 
-                labels = generate_labels(question_text, candidate_ids, chunks)
+                labels = generate_labels(question, candidate_ids, chunks)
                 print("Labels:", labels)
 
                 answer = generate_answer(question_text, labels, chunks)
@@ -117,7 +133,16 @@ def main():
 
             def _chunk_info(item):
                 cid = item.get("chunk_id")
-                chunk_ = chunks[cid]
+                chunk_ = chunks_by_id.get(cid)
+                if chunk_ is None:
+                    return {
+                        "chunk_id": cid,
+                        "relevance": item.get("relevance", 0),
+                        "source": None,
+                        "document_id": None,
+                        "text_snippet": None,
+                        "error": "unknown chunk_id",
+                    }
                 meta = chunk_.get("metadata", {})
                 return {
                     "chunk_id": cid,
