@@ -9,15 +9,12 @@ from test_generator.candidate_retriever import retrieve_candidates
 from test_generator.label_generator import generate_labels
 from test_generator.answer_generator import generate_answer
 
-
-# ĐIỀN document_id thật muốn gen test vào đây (lấy từ list_documents() bên
-# dưới, hoặc để rỗng [] để tool tự in ra 20 document đầu cho bạn chọn).
 DOCUMENT_IDS: list[str] = ["248e2b74-233d-4041-a841-f640aea97346"]
 
-# Đặt True để lấy TẤT CẢ document trong DB thay vì chỉ DOCUMENT_IDS ở trên.
+# Đặt True để lấy hết document trong DB thay vì chỉ DOCUMENT_IDS ở trên.
 ALL_DOCUMENTS = False
 
-# Đặt True để lấy MỘT NỬA số document trong DB (194 -> ~97)
+# Đặt True để lấy 1/2 số document trong DB (194 -> ~97)
 HALF_DOCUMENTS = True
 
 
