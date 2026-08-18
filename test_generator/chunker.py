@@ -1,7 +1,76 @@
-# Trước khi chạy bộ chia theo token, chèn ký tự xuống dòng
-# ngay trước mỗi vị trí được phát hiện là bắt đầu một dòng dữ liệu
-# ("<STT>. <MSSV 8 chữ số> <Tên...>"), để các dấu phân cách "\n\n"/"\n"
-# có thể chia văn bản theo đúng ranh giới giữa các dòng.
+from typing import Iterable
+import re
+import uuid
+
+# Số token overlap giữa các chunk liền kề
+CHUNK_OVERLAP_TOKENS = 50
+
+# Giới hạn số token tối đa cho mỗi chunk
+CHUNK_MAX_TOKENS = 500
+
+# Các dấu phân cách theo thứ tự ưu tiên khi chia nhỏ văn bản (TLA split)
+DEFAULT_SEPARATORS = ["\n\n", "\n", ". ", " ", ""]
+
+
+def _token_count(text: str) -> int:
+    """Ước lượng số token đơn giản bằng cách đếm số từ (whitespace-split)."""
+    return len(text.split())
+
+
+def _normalize_table_row_boundaries(text: str) -> str:
+    """Chèn ký tự xuống dòng ngay trước mỗi vị trí được phát hiện là
+    bắt đầu một dòng dữ liệu dạng "<STT>. <MSSV 8 chữ số> <Tên...>",
+    để \\n\\n / \\n có thể chia đúng ranh giới giữa các dòng.
+    """
+    pattern = re.compile(r"(?<!^)(?<!\n)(\d+\.\s+\d{8}\s+)")
+    return pattern.sub(r"\n\1", text)
+
+
+def _tla_split_text(
+    text: str,
+    separators: list[str],
+    max_tokens: int = CHUNK_MAX_TOKENS,
+) -> list[str]:
+    """Chia văn bản đệ quy theo danh sách separators (Text-Level-Aware),
+    đảm bảo mỗi phần không vượt quá max_tokens token.
+    """
+    if not text.strip():
+        return []
+    if _token_count(text) <= max_tokens or not separators:
+        return [text]
+
+    sep, rest_separators = separators[0], separators[1:]
+
+    if sep == "":
+        # Hết dấu phân cách: cắt cứng theo số từ.
+        words = text.split()
+        return [
+            " ".join(words[i:i + max_tokens])
+            for i in range(0, len(words), max_tokens)
+        ]
+
+    parts = text.split(sep)
+    results: list[str] = []
+    buffer = ""
+    for part in parts:
+        candidate = f"{buffer}{sep}{part}" if buffer else part
+        if _token_count(candidate) <= max_tokens:
+            buffer = candidate
+        else:
+            if buffer:
+                results.extend(_tla_split_text(buffer, rest_separators, max_tokens))
+            buffer = part
+    if buffer:
+        results.extend(_tla_split_text(buffer, rest_separators, max_tokens))
+
+    return [r for r in results if r.strip()]
+
+
+def assign_chunk_ids(chunks: list[dict]) -> list[dict]:
+    """Gán chunk_id duy nhất (UUID4 dạng chuỗi) cho từng chunk."""
+    for chunk in chunks:
+        chunk["chunk_id"] = str(uuid.uuid4())
+    return chunks
 
 def _extract_media_blocks(text: str) -> Iterable[tuple[str, bool]]:
     # Mẫu này khớp với các khối <table ...>...</table> hoặc <img .../>

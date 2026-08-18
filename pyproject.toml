@@ -3,7 +3,7 @@ name = "test_generator"
 version = "0.1.0"
 description = "Generate retrieval and QA benchmark datasets from document chunks using an LLM."
 authors = [
-    { name = "Tran Phuong P", email = "you@example.com" }
+    { name = "Tran Phuong Phuong", email = "tranpp1703@gmail.com" }
 ]
 readme = "README.md"
 requires-python = ">=3.10"
@@ -21,7 +21,9 @@ dependencies = [
     "pypdf",
     "python-dotenv",
     "tqdm",
-    "requests"
+    "requests",
+    "python-docx",
+    "psycopg2-binary"
 ]
 
 [build-system]
