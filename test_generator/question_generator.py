@@ -40,6 +40,38 @@ def validate_question_item(item):
     return True
 
 
+def _normalize_source_chunk_ids(item, main_chunk_id, related_ids):
+    """Chuẩn hoá field source_chunk_ids trả về từ LLM.
+
+    - Nếu model trả về hợp lệ (list không rỗng, id nằm trong tập chunk đã
+      đưa vào prompt: chunk chính + related_chunks) -> giữ nguyên, dedupe.
+    - Nếu model quên trả field này, trả rỗng, hoặc trả id "bịa" không nằm
+      trong tập chunk đã cung cấp -> fallback:
+        + one-hop / table: gán về [main_chunk_id]
+        + multi-hop: gán về [main_chunk_id] + related_ids (an toàn hơn để
+          trống, tránh mất ground truth khiến retrieval đúng nhưng vẫn bị
+          coi là "không tìm thấy câu trả lời" ở bước đánh giá sau này).
+    """
+    valid_ids = {main_chunk_id, *related_ids}
+
+    raw = item.get("source_chunk_ids")
+    if isinstance(raw, list) and raw:
+        cleaned = []
+        seen = set()
+        for cid in raw:
+            cid = str(cid)
+            if cid in {str(v) for v in valid_ids} and cid not in seen:
+                cleaned.append(cid)
+                seen.add(cid)
+        if cleaned:
+            return cleaned
+
+    # Fallback khi thiếu / rỗng / toàn id không khớp tập chunk đã cho.
+    if item.get("type") == "multi-hop":
+        return [str(main_chunk_id)] + [str(r) for r in related_ids]
+    return [str(main_chunk_id)]
+
+
 def _format_related_chunks(chunks):
     if not chunks:
         return ""
@@ -109,7 +141,12 @@ def generate_questions(chunk, all_chunks=None):
     if all_chunks is not None:
         related_chunks = _select_related_chunks(chunk, all_chunks, limit=2)
 
+    related_ids = [c["chunk_id"] for c in related_chunks]
+
     prompt = QUESTION_PROMPT.replace(
+        "{chunk_id}",
+        str(chunk["chunk_id"])
+    ).replace(
         "{chunk}",
         chunk["text"]
     ).replace(
@@ -122,7 +159,12 @@ def generate_questions(chunk, all_chunks=None):
 
     questions = []
     for item in data.get("questions", []):
-        if validate_question_item(item):
-            questions.append(item)
+        if not validate_question_item(item):
+            continue
+
+        item["source_chunk_ids"] = _normalize_source_chunk_ids(
+            item, chunk["chunk_id"], related_ids
+        )
+        questions.append(item)
 
     return questions

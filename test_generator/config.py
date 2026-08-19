@@ -12,6 +12,10 @@ LLM_URL = "http://10.0.128.19:8010/v1/chat/completions"
 
 MODEL_NAME = "llm-model"
 
+# Repo HuggingFace của model thật đang chạy sau LLM_URL, dùng để load đúng
+# tokenizer cho việc đếm token chính xác (thay vì ước lượng theo ký tự).
+TOKENIZER_PATH = "google/gemma-4-26B-A4B-it"
+
 TEMPERATURE = 0.2
 
 MAX_TOKENS = 4000

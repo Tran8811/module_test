@@ -23,7 +23,8 @@ dependencies = [
     "tqdm",
     "requests",
     "python-docx",
-    "psycopg2-binary"
+    "psycopg2-binary",
+    "transformers",
 ]
 
 [build-system]

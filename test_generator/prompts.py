@@ -1,7 +1,7 @@
 QUESTION_PROMPT = """
 You are creating a benchmark dataset for evaluating Retrieval and QA systems.
 
-Given one document chunk below, generate exactly 3 questions with types and difficulty labels.
+Given one document chunk below (with its chunk id), generate exactly 3 questions with types and difficulty labels.
 
 Requirements:
 - Questions must be factual.
@@ -12,6 +12,23 @@ Requirements:
 - If the chunk contains a table or structured data, include one table-related question.
 - If related chunks are available, create at least one question that requires combining information from multiple chunks.
 
+Self-contained requirement (very important):
+- Each question MUST make full sense on its own, with NO reference to "the chunk", "this document",
+  "the text above", "the passage", "as mentioned", "the given content", or any similar phrase that
+  assumes the reader has already seen the chunk.
+- Do NOT use vague pronouns ("it", "he", "this", "that") without a clear antecedent stated in the
+  question itself. Spell out the actual subject (person name, organization, date, term...) explicitly.
+- A question must be understandable and answerable by someone who has NEVER seen this chunk, and who
+  will later search a large document collection to find the answer — it should read like a natural
+  standalone question, not a reading-comprehension question about "this text".
+- Bad example: "What is mentioned in the table above about the score?"
+- Good example: "What is the average score of students in class 10A2 according to the semester report?"
+
+For every question, you MUST also return which chunk id(s) contain the evidence needed to answer it:
+- For "one-hop" and "table" questions: source_chunk_ids should contain only the id of the given chunk below.
+- For "multi-hop" questions: source_chunk_ids should include the id of the given chunk below AND the id(s)
+  of any related chunk(s) (from "Related chunks") that are actually needed to answer the question.
+
 Return ONLY valid JSON.
 
 Format:
@@ -20,7 +37,8 @@ Format:
     {{
       "question": "...",
       "type": "one-hop|multi-hop|table",
-      "difficulty": "easy|medium|hard"
+      "difficulty": "easy|medium|hard",
+      "source_chunk_ids": ["..."]
     }}
   ]
 }}
@@ -34,6 +52,8 @@ Difficulty definitions:
 - easy: direct factual retrieval.
 - medium: requires a moderate inference or combination of facts.
 - hard: requires deeper reasoning or multi-step synthesis.
+
+Chunk id: {chunk_id}
 
 Chunk:
 

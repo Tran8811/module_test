@@ -1,7 +1,7 @@
 from typing import Iterable
 import re
 import uuid
-
+from .llm import _estimate_tokens
 # Số token overlap giữa các chunk liền kề
 CHUNK_OVERLAP_TOKENS = 50
 
@@ -14,7 +14,7 @@ DEFAULT_SEPARATORS = ["\n\n", "\n", ". ", " ", ""]
 
 def _token_count(text: str) -> int:
     """Ước lượng số token đơn giản bằng cách đếm số từ (whitespace-split)."""
-    return len(text.split())
+    return _estimate_tokens(text)
 
 
 def _normalize_table_row_boundaries(text: str) -> str:

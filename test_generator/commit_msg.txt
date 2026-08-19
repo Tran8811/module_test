@@ -1,0 +1,4 @@
+fix(rag): sửa mismatch chunk_id và chuyển chunker sang tokenizer thật
+- prompts: thêm chunk_id, yêu cầu câu hỏi self-contained, thêm source_chunk_ids
+- question_generator: lưu ground truth chunk_id, fallback khi model thiếu field
+- chunker: _token_count dùng tokenizer
