@@ -31,18 +31,6 @@ For every question, you MUST also return which chunk id(s) contain the evidence 
 
 Return ONLY valid JSON.
 
-Format:
-{{
-  "questions": [
-    {{
-      "question": "...",
-      "type": "one-hop|multi-hop|table",
-      "difficulty": "easy|medium|hard",
-      "source_chunk_ids": ["..."]
-    }}
-  ]
-}}
-
 Type definitions:
 - one-hop: can be answered directly using one fact or one chunk.
 - multi-hop: requires reasoning across multiple facts or combining information.
@@ -81,25 +69,9 @@ Relevance:
 0 = Irrelevant.
 
 Rules:
-- Return ONLY one JSON object.
-- Do NOT explain.
-- Do NOT use markdown.
-- Do NOT wrap with ```json.
-- chunk_id MUST be an integer.
 - Return only candidates with relevance > 0.
 - Do NOT include chunks with relevance = 0 in the results.
 - Assume any candidate not listed has relevance = 0.
-
-Output format:
-
-{{
-  "results": [
-    {{
-      "chunk_id": 2,
-      "relevance": 3
-    }}
-  ]
-}}
 """
 
 CANDIDATE_PROMPT = """
@@ -113,24 +85,12 @@ Below are document chunks.
 Select the {top_k} most relevant chunks.
 
 Rules:
-- Return ONLY one JSON object.
-- Do NOT explain.
-- Do NOT use markdown.
-- Do NOT wrap with ```json.
-- Do NOT output any text before or after the JSON.
-- Return ONLY integer chunk IDs.
 - If a chunk partially answers the question, include it.
 - Prefer chunks containing direct evidence.
 - If the question requires comparing or combining information, return all chunks needed to answer it fully.
 
 Chunks:
 {chunks}
-
-Output format:
-
-{{
-  "candidate_chunks": [1, 5, 9]
-}}
 """
 ANSWER_PROMPT = """
 You are creating a benchmark dataset for Question Answering.
@@ -150,10 +110,4 @@ Requirements:
 - If the answer requires multiple chunks, combine them clearly.
 - If information is insufficient, answer "Not enough information."
 - Keep the answer concise and factual.
-
-Return ONLY valid JSON.
-
-{{
-    "answer":"..."
-}}
 """

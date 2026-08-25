@@ -4,6 +4,23 @@ import re
 from .llm import chat
 from .prompts import ANSWER_PROMPT
 
+# JSON schema ép output của LLM (response_format kiểu OpenAI structured
+# output, vLLM/SGLang hỗ trợ native) -- thay cho việc dặn "Return ONLY
+# valid JSON" bằng lời trong ANSWER_PROMPT.
+ANSWER_RESPONSE_FORMAT = {
+    "type": "json_schema",
+    "json_schema": {
+        "name": "answer",
+        "schema": {
+            "type": "object",
+            "properties": {
+                "answer": {"type": "string"},
+            },
+            "required": ["answer"],
+        },
+    },
+}
+
 
 def clean_json(text):
     text = re.sub(r"```json", "", text)
@@ -93,7 +110,7 @@ def generate_answer(question, labels, chunks):
         "{chunks}", build_chunks(labels, chunks)
     )
 
-    response = chat(prompt)
+    response = chat(prompt, response_format=ANSWER_RESPONSE_FORMAT)
 
     data = parse_answer_response(response)
 

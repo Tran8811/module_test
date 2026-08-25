@@ -14,14 +14,5 @@ Các tiêu đề đã xác định ở đoạn trước (để giữ mạch phâ
 Danh sách dòng cần phân loại:
 {lines}
 
-Chỉ trả về JSON, KHÔNG giải thích, KHÔNG dùng markdown, KHÔNG bọc ```json.
-
-Định dạng:
-{{
-  "items": [
-    {{"id": 0, "level": -1}},
-    {{"id": 1, "level": 1}},
-    {{"id": 2, "level": 2}}
-  ]
-}}
+Trả về đầy đủ kết quả cho TẤT CẢ các id có trong danh sách trên, không bỏ sót.
 """

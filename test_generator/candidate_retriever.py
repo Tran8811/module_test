@@ -6,6 +6,26 @@ from .config import CANDIDATE_PREFILTER_LIMIT, CANDIDATE_CHUNK_SNIPPET_TOKENS
 from .llm import chat, _estimate_payload_tokens, MODEL_CONTEXT_WINDOW, CONTEXT_WINDOW_SAFETY_MARGIN, MAX_TOKENS
 from .prompts import CANDIDATE_PROMPT
 
+# JSON schema ép output của LLM (response_format kiểu OpenAI structured
+# output, vLLM/SGLang hỗ trợ native) -- thay cho việc dặn format JSON bằng
+# lời trong CANDIDATE_PROMPT.
+CANDIDATE_RESPONSE_FORMAT = {
+    "type": "json_schema",
+    "json_schema": {
+        "name": "candidate_chunks",
+        "schema": {
+            "type": "object",
+            "properties": {
+                "candidate_chunks": {
+                    "type": "array",
+                    "items": {"type": "integer"},
+                }
+            },
+            "required": ["candidate_chunks"],
+        },
+    },
+}
+
 
 def clean_json(text):
     text = re.sub(r"```json", "", text)
@@ -247,11 +267,11 @@ def retrieve_candidates(question, chunks, top_k=5):
     used_chunks = candidate_chunks
 
     try:
-        response = chat(prompt)
+        response = chat(prompt, response_format=CANDIDATE_RESPONSE_FORMAT)
     except Exception:
         used_chunks = candidate_chunks[:min_candidates]
         prompt = _build_prompt(used_chunks, snippet_tokens=20)
-        response = chat(prompt)
+        response = chat(prompt, response_format=CANDIDATE_RESPONSE_FORMAT)
 
     data = json.loads(clean_json(response))
 

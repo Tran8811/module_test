@@ -156,6 +156,7 @@ def chat(
     max_retries: int = 5,
     backoff_seconds: float = 5.0,
     max_tokens: int | None = None,
+    response_format: Dict[str, Any] | None = None,
 ):
     output_tokens = max_tokens if max_tokens is not None else MAX_TOKENS
 
@@ -193,6 +194,16 @@ def chat(
         # bỏ qua chứ không lỗi -- theo dõi log [llm-reasoning] để biết
         # có hiệu quả hay không.
         payload["chat_template_kwargs"] = {"enable_thinking": False}
+
+    if response_format is not None:
+        # Structured output kiểu OpenAI (response_format={"type": "json_schema",
+        # "json_schema": {...}}), được vLLM (>=0.6, backend xgrammar/outlines)
+        # và SGLang hỗ trợ native qua endpoint OpenAI-compatible. Model bị ép
+        # sinh đúng theo schema ở tầng decoding, không chỉ "được dặn" trong
+        # prompt -- nhờ vậy khỏi cần nhồi hướng dẫn format vào prompt, và kết
+        # quả trả về gần như luôn là JSON hợp lệ (vẫn có thể bị cắt cụt nếu
+        # chạm max_tokens, nên vẫn giữ các cơ chế vá JSON ở toc_detector.py).
+        payload["response_format"] = response_format
 
     last_exc = None
 

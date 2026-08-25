@@ -4,6 +4,33 @@ import re
 from .llm import chat
 from .prompts import LABEL_PROMPT
 
+# JSON schema ép output của LLM (response_format kiểu OpenAI structured
+# output, vLLM/SGLang hỗ trợ native) -- thay cho việc dặn format JSON bằng
+# lời trong LABEL_PROMPT.
+LABEL_RESPONSE_FORMAT = {
+    "type": "json_schema",
+    "json_schema": {
+        "name": "label_results",
+        "schema": {
+            "type": "object",
+            "properties": {
+                "results": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "chunk_id": {"type": "integer"},
+                            "relevance": {"type": "integer"},
+                        },
+                        "required": ["chunk_id", "relevance"],
+                    },
+                }
+            },
+            "required": ["results"],
+        },
+    },
+}
+
 
 def clean_json(text):
 
@@ -143,7 +170,7 @@ def generate_labels(question, candidate_ids, chunks):
         build_chunks(candidate_ids, chunks)
     )
 
-    response = chat(prompt)
+    response = chat(prompt, response_format=LABEL_RESPONSE_FORMAT)
 
     data = parse_label_response(response)
 

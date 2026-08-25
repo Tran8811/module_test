@@ -4,6 +4,45 @@ import re
 from .llm import chat
 from .prompts import QUESTION_PROMPT
 
+# JSON schema ép output của LLM (response_format kiểu OpenAI structured
+# output, vLLM/SGLang hỗ trợ native) -- thay cho việc dặn "Return ONLY
+# valid JSON" bằng lời trong QUESTION_PROMPT. enum của type/difficulty
+# vẫn khớp với validate_question_item() bên dưới để 2 lớp kiểm tra nhất quán.
+QUESTION_RESPONSE_FORMAT = {
+    "type": "json_schema",
+    "json_schema": {
+        "name": "generated_questions",
+        "schema": {
+            "type": "object",
+            "properties": {
+                "questions": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "question": {"type": "string"},
+                            "type": {
+                                "type": "string",
+                                "enum": ["one-hop", "multi-hop", "table"],
+                            },
+                            "difficulty": {
+                                "type": "string",
+                                "enum": ["easy", "medium", "hard"],
+                            },
+                            "source_chunk_ids": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                            },
+                        },
+                        "required": ["question", "type", "difficulty", "source_chunk_ids"],
+                    },
+                }
+            },
+            "required": ["questions"],
+        },
+    },
+}
+
 
 def clean_json(text: str) -> str:
     text = text.replace("```json", "")
@@ -154,7 +193,7 @@ def generate_questions(chunk, all_chunks=None):
         _format_related_chunks(related_chunks)
     )
 
-    response = chat(prompt)
+    response = chat(prompt, response_format=QUESTION_RESPONSE_FORMAT)
     data = parse_question_response(response)
 
     questions = []
