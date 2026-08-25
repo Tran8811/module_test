@@ -16,3 +16,4 @@ uv.lock
 *.sqlite
 *.db
 .env
+'.idea' 
